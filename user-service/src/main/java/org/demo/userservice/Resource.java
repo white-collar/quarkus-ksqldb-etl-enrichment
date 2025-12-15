@@ -34,6 +34,7 @@ public class Resource {
             if (body.contains("productId")) key = mapper.readTree(body).get("productId").asText();
             if (body.contains("orderId")) key = mapper.readTree(body).get("orderId").asText();
             producer.send(new ProducerRecord<>("users", key, body));
+            System.out.println("[user-service] pushed " + body + " to Kafka");
             return Response.accepted().build();
         } catch (Exception e) {
             return Response.serverError().entity(e.getMessage()).build();

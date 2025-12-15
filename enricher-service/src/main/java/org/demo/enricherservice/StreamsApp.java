@@ -1,72 +1,81 @@
 package org.demo.enricherservice;
 
+import io.quarkus.kafka.client.serialization.ObjectMapperSerde;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import io.quarkus.runtime.StartupEvent;
-
+import jakarta.enterprise.inject.Produces;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.Topology;
-import org.apache.kafka.streams.StreamsConfig;
-
-import java.util.Properties;
+import org.apache.kafka.streams.kstream.Consumed;
+import org.apache.kafka.streams.kstream.Joined;
+import org.apache.kafka.streams.kstream.Produced;
+import org.demo.enricherservice.dto.*;
 
 @ApplicationScoped
 public class StreamsApp {
 
-    void onStart(@Observes StartupEvent ev) {
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "enricher-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty("kafka.bootstrap.servers", "localhost:9092"));
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+    @Produces
+    public Topology topology() {
+
+        System.out.println("[enricher-service] building topology");
+
+        // SerDes
+        ObjectMapperSerde<Order> orderSerde = new ObjectMapperSerde<>(Order.class);
+        ObjectMapperSerde<User> userSerde = new ObjectMapperSerde<>(User.class);
+        ObjectMapperSerde<Product> productSerde = new ObjectMapperSerde<>(Product.class);
+        ObjectMapperSerde<EnrichedOrder> enrichedOrderSerde = new ObjectMapperSerde<>(EnrichedOrder.class);
+        ObjectMapperSerde<FullyEnrichedOrder> finalSerde = new ObjectMapperSerde<>(FullyEnrichedOrder.class);
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        KStream<String, String> orders = builder.stream("orders");
-        KTable<String, String> users = builder.table("users");
-        KTable<String, String> products = builder.table("products");
+        var orders = builder.stream(
+                "orders",
+                Consumed.with(Serdes.String(), orderSerde)
+        );
 
-        KStream<String, String> ordersByUser = orders.selectKey((key, value) -> {
-            try {
-                int idx = value.indexOf("\"userId\"");
-                if (idx == -1) return key;
-                String sub = value.substring(idx+9);
-                int start = sub.indexOf('\"')+1;
-                int end = sub.indexOf('\"', start);
-                return sub.substring(start, end);
-            } catch (Exception e) {
-                return key;
-            }
-        });
+        var users = builder.table(
+                "users",
+                Consumed.with(Serdes.String(), userSerde)
+        );
 
-        KStream<String, String> withUser = ordersByUser.leftJoin(users, (order, user) -> "{\"order\": " + order + ", \"user\": " + (user==null?"null":user) + "}");
+        var products = builder.table(
+                "products",
+                Consumed.with(Serdes.String(), productSerde)
+        );
 
-        KStream<String, String> byProduct = withUser.selectKey((k, v) -> {
-            try {
-                int idx = v.indexOf("\"productId\"");
-                if (idx == -1) return k;
-                String sub = v.substring(idx+12);
-                int start = sub.indexOf('"')+1;
-                int end = sub.indexOf('"', start);
-                return sub.substring(start, end);
-            } catch (Exception e) {
-                return k;
-            }
-        });
+        // FIRST JOIN: orders + users
+        var withUser = orders.leftJoin(
+                users,
+                EnrichedOrder::new,
+                Joined.with(Serdes.String(), orderSerde, userSerde)
+        );
 
-        KStream<String, String> finalEnriched = byProduct.leftJoin(products, (enr, product) -> "{\"enriched\": " + enr + ", \"product\": " + (product==null?"null":product) + "}");
+        // REKEY by productId
+        var byProduct = withUser.selectKey(
+                (oldKey, enriched) -> enriched.order()
+        );
 
-        finalEnriched.to("orders_enriched");
+        // SECOND JOIN: add product info
+        var finalEnriched = byProduct.leftJoin(
+                products,
+                FullyEnrichedOrder::new,
+                Joined.with(Serdes.String(), enrichedOrderSerde, productSerde)
+        );
 
-        Topology t = builder.build();
-        KafkaStreams streams = new KafkaStreams(t, props);
-        streams.start();
+        // Debug log
+        finalEnriched.peek((key, value) ->
+                System.out.println("ENRICHED key=" + key + " value=" + value)
+        );
 
-        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+        // Sink
+        finalEnriched.to(
+                "orders-enriched",
+                Produced.with(Serdes.String(), finalSerde)
+        );
+
+        Topology topology = builder.build();
+        System.out.println(topology.describe());
+
+        return topology;
     }
 }
