@@ -9,4 +9,13 @@ public class FullyEnrichedOrder {
         this.enriched = e;
         this.product = p;
     }
+
+    @Override
+    public String toString() {
+        return "FullyEnrichedOrder{" +
+                "order=" + enriched.order +
+                ", user=" + enriched.user +
+                ", product=" + product +
+                '}';
+    }
 }
