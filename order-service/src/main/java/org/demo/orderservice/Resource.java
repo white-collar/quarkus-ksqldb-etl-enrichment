@@ -35,6 +35,7 @@ public class Resource {
             if (body.contains("productId")) key = mapper.readTree(body).get("productId").asText();
             if (body.contains("orderId")) key = mapper.readTree(body).get("orderId").asText();
             producer.send(new ProducerRecord<>("orders", key, body));
+            System.out.println("[orders] Order has been sent: " + key + ": " + body);
             return Response.accepted().build();
         } catch (Exception e) {
             return Response.serverError().entity(e.getMessage()).build();

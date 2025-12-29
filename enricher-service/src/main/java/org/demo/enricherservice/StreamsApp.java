@@ -15,6 +15,8 @@ import org.apache.kafka.streams.StreamsConfig;
 
 import java.util.Properties;
 
+import static io.vertx.codegen.CodeGenProcessor.log;
+
 @ApplicationScoped
 public class StreamsApp {
 
@@ -62,6 +64,10 @@ public class StreamsApp {
         KStream<String, String> finalEnriched = byProduct.leftJoin(products, (enr, product) -> "{\"enriched\": " + enr + ", \"product\": " + (product==null?"null":product) + "}");
 
         finalEnriched.to("orders_enriched");
+
+        finalEnriched.peek((key, value) -> {
+            System.out.println("[enriched order] key " + key + " value " + value);
+        });
 
         Topology t = builder.build();
         KafkaStreams streams = new KafkaStreams(t, props);
