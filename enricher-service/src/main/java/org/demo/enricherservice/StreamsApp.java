@@ -29,9 +29,10 @@ public class StreamsApp {
         StreamsBuilder builder = new StreamsBuilder();
 
         var orders = builder.stream(
-                "orders",
-                Consumed.with(Serdes.String(), orderSerde)
-        );
+                        "orders",
+                        Consumed.with(Serdes.String(), orderSerde)
+                )
+                .selectKey((oldKey, order) -> order.getUserId());
 
         var users = builder.table(
                 "users",

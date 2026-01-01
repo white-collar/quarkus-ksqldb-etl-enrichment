@@ -1,6 +1,6 @@
+/Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/StreamsApp.java
 /Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/EnrichedOrder.java
 /Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/FullyEnrichedOrder.java
-/Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/User.java
 /Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/Order.java
-/Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/StreamsApp.java
 /Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/Product.java
+/Users/eugene/Desktop/orders-enrichment-demo/enricher-service/src/main/java/org/demo/enricherservice/dto/User.java
