@@ -1,6 +1,10 @@
 package org.demo.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class EnrichedOrder {
+
+    @JsonProperty("orderIdValue")
     public String orderId;
     public String userId;
     public String userName;
